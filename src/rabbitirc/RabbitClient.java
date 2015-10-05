@@ -13,6 +13,7 @@ import com.rabbitmq.client.Consumer;
 import com.rabbitmq.client.DefaultConsumer;
 import com.rabbitmq.client.Envelope;
 import java.io.IOException;
+import java.util.Scanner;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -27,7 +28,7 @@ public class RabbitClient {
     private ConnectionFactory factory;
     private Connection connection;
     private final static String QUEUE_NAME = "hello";
-    private Consumer consumer; 
+    private Consumer consumer;
 
     public RabbitClient() throws IOException, TimeoutException {
         factory = new ConnectionFactory();
@@ -47,15 +48,46 @@ public class RabbitClient {
         channel.basicConsume(QUEUE_NAME, true, consumer);
 
     }
-    
-    public void Send () throws IOException, TimeoutException {
+
+    public void Send() throws IOException, TimeoutException {
         String message = "Hello World!";
         channel.basicPublish("", QUEUE_NAME, null, message.getBytes());
         System.out.println(" [x] Sent '" + message + "'");
     }
-    
+
     public static void main(String[] argv) throws IOException, TimeoutException {
         RabbitClient rabbitClient = new RabbitClient();
+        User u = new User();
+        Scanner sc = new Scanner(System.in);
+        
+        String command = sc.nextLine();
+        while (!command.equals("/EXIT")) {
+            if (command.length() >= 5 && command.substring(0, 5).equals("/NICK")) {
+                if (command.length() == 5) { //default username
+                    //Implementation here
+                } else if (command.charAt(5) == ' ' && command.length() >= 7) {
+                    //Implementation here
+                }
+            } else if (command.length() >= 5 && command.substring(0, 5).equals("/JOIN") && !u.isEmpty()) {
+                if (command.length() == 5) { //default username
+                    //Implementation here
+                } else if (command.charAt(5) == ' ' && command.length() >= 7) {
+                    //Implementation here
+                } else {
+                    System.out.println("Wrong format");
+                }
+            } else if (command.length() >= 6 && command.substring(0, 6).equals("/LEAVE") && !u.isEmpty()) {
+                if (command.charAt(6) == ' ' && command.length() >= 8) {
+                    //Implementation here
+                }
+            } else if (command.length() >= 4 && command.charAt(0) == ('@') && !u.isEmpty()) {
+                    //Implementation here
+            } else if (!u.isEmpty()) {
+                    //Implementation here
+            }
+
+            command = sc.nextLine();
+        }
         rabbitClient.Send();
     }
 
