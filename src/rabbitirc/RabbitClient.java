@@ -19,8 +19,6 @@ import java.util.List;
 import java.util.Random;
 import java.util.Scanner;
 import java.util.concurrent.TimeoutException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  *
@@ -30,11 +28,11 @@ public class RabbitClient {
 
     private static Channel channel;
     private final ConnectionFactory factory;
-    private final Connection connection;
+    private static Connection connection;
     private final static String QUEUE_NAME = "hello";
     private final static String BROADCAST_EX_NAME = "log";
     private final Consumer consumer;
-    private final User user;
+    private static User user;
     private static final List<String> defaultUsernames = new ArrayList<>(
             Arrays.asList("Kucing", "Sapi", "Rusa", "Kambing", "Platipus", "Kucing", "Naga", "Panda")
     );
@@ -57,6 +55,7 @@ public class RabbitClient {
                     throws IOException {
                 String message = new String(body, "UTF-8");
                 System.out.println(message);
+
             }
         };
         channel.basicConsume(queueName, true, consumer);
@@ -68,14 +67,21 @@ public class RabbitClient {
         System.out.println(" [x] Sent '" + message + "'");
     }
 
-    public void pushNotifications(String message) throws IOException {
-        String messageToSend = "Notifications : " + message;
+    public void pushNotifications(String message, String header) throws IOException {
+        String messageToSend = header + " Notifications : " + message;
+        channel.basicPublish(BROADCAST_EX_NAME, "", null, messageToSend.getBytes());
+    }
+
+    public void broadcastMessage() {
+    }
+
+    public void pushWarning(String message, String header) throws IOException {
+        String messageToSend = header + " Notifications : " + message;
         channel.basicPublish(BROADCAST_EX_NAME, "", null, messageToSend.getBytes());
     }
 
     public static void main(String[] argv) throws IOException, TimeoutException {
         RabbitClient rabbitClient = new RabbitClient();
-        User u = new User();
         Scanner sc = new Scanner(System.in);
 
         String command = sc.nextLine();
@@ -83,7 +89,6 @@ public class RabbitClient {
             if (command.length() >= 5 && command.substring(0, 5).equals("/NICK")) {
                 String name = "";
                 if (command.length() <= 6) { //default username
-                    //Implementation here
                     int rndIdx = new Random().nextInt((defaultUsernames.size() - 0));
                     name = defaultUsernames.get(rndIdx);
                 } else if (command.charAt(5) == ' ' && command.length() >= 7) {
@@ -91,30 +96,34 @@ public class RabbitClient {
                     name = name.trim(); //remove trailing whitespace
                 }
                 String message = name + " has joined";
-                u.setName(name);
-                rabbitClient.pushNotifications(message);
+                user.setName(name);
+                rabbitClient.pushNotifications(message, "[NICK]");
 
-            } else if (command.length() >= 5 && command.substring(0, 5).equals("/JOIN") && !u.isEmpty()) {
-                if (command.length() == 5) { //default username
-                    //Implementation here
-                } else if (command.charAt(5) == ' ' && command.length() >= 7) {
-                    //Implementation here
+            } else if (command.length() >= 5 && command.substring(0, 5).equals("/JOIN")) {
+                String channelName = "";
+                if (command.length() <= 6) { //default username
+                    channelName = "channelname";
+
                 } else {
-                    System.out.println("Wrong format");
+                    channelName = command.substring(command.indexOf(" "));
                 }
-            } else if (command.length() >= 6 && command.substring(0, 6).equals("/LEAVE") && !u.isEmpty()) {
+                String message = user.getName() + " has joined channel " + channelName;
+                rabbitClient.pushNotifications(message, "[JOIN]");
+
+            } else if (command.length() >= 6 && command.substring(0, 6).equals("/LEAVE")) {
                 if (command.charAt(6) == ' ' && command.length() >= 8) {
                     //Implementation here
                 }
-            } else if (command.length() >= 4 && command.charAt(0) == ('@') && !u.isEmpty()) {
+            } else if (command.length() >= 4 && command.charAt(0) == ('@')) {
                 //Implementation here
-            } else if (!u.isEmpty()) {
+            } else if (!user.isEmpty()) {
                 //Implementation here
             }
 
             command = sc.nextLine();
         }
-        rabbitClient.Send();
+        channel.close();
+        connection.close();
     }
 
 }
