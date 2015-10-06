@@ -30,7 +30,7 @@ public class RabbitClient {
     private final ConnectionFactory factory;
     private static Connection connection;
     private final static String QUEUE_NAME = "hello";
-    private final static String BROADCAST_EX_NAME = "log";
+    private final static String NOTIFICATIONS_EX_NAME = "log";
     private final Consumer consumer;
     private static User user;
     private static final List<String> defaultUsernames = new ArrayList<>(
@@ -45,9 +45,9 @@ public class RabbitClient {
         user = new User();
 
 //        channel.queueDeclare(QUEUE_NAME, false, false, false, null);
-        channel.exchangeDeclare(BROADCAST_EX_NAME, "fanout");
+        channel.exchangeDeclare(NOTIFICATIONS_EX_NAME, "fanout");
         String queueName = channel.queueDeclare().getQueue();
-        channel.queueBind(queueName, BROADCAST_EX_NAME, "");
+        channel.queueBind(queueName, NOTIFICATIONS_EX_NAME, "");
 
         consumer = new DefaultConsumer(channel) {
             @Override
@@ -69,15 +69,16 @@ public class RabbitClient {
 
     public void pushNotifications(String message, String header) throws IOException {
         String messageToSend = header + " Notifications : " + message;
-        channel.basicPublish(BROADCAST_EX_NAME, "", null, messageToSend.getBytes());
+        channel.basicPublish(NOTIFICATIONS_EX_NAME, "", null, messageToSend.getBytes());
     }
 
-    public void broadcastMessage() {
+    public void broadcastMessage(String message) {
+        
     }
 
     public void pushWarning(String message, String header) throws IOException {
         String messageToSend = header + " Notifications : " + message;
-        channel.basicPublish(BROADCAST_EX_NAME, "", null, messageToSend.getBytes());
+        channel.basicPublish(NOTIFICATIONS_EX_NAME, "", null, messageToSend.getBytes());
     }
 
     public static void main(String[] argv) throws IOException, TimeoutException {
