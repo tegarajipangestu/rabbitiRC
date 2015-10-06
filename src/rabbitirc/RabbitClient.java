@@ -72,8 +72,9 @@ public class RabbitClient {
         channel.basicPublish(NOTIFICATIONS_EX_NAME, "", null, messageToSend.getBytes());
     }
 
-    public void broadcastMessage(String message) {
-        
+    public void broadcastMessage(String _message) throws IOException {
+        String message = "[BROADCAST] "+_message;
+        channel.basicPublish(NOTIFICATIONS_EX_NAME, "", null, message.getBytes());
     }
 
     public void pushWarning(String message, String header) throws IOException {
@@ -113,12 +114,16 @@ public class RabbitClient {
 
             } else if (command.length() >= 6 && command.substring(0, 6).equals("/LEAVE")) {
                 if (command.charAt(6) == ' ' && command.length() >= 8) {
-                    //Implementation here
+                    String channelName = command.substring(command.indexOf(" "));
+                    String message = user.getName() + " left channel " + channelName;
+                    rabbitClient.pushNotifications(message, "[LEAVE]");
                 }
             } else if (command.length() >= 4 && command.charAt(0) == ('@')) {
                 //Implementation here
-            } else if (!user.isEmpty()) {
+            } else {
                 //Implementation here
+                System.out.println("sini");
+                rabbitClient.broadcastMessage(command);
             }
 
             command = sc.nextLine();
