@@ -13,6 +13,10 @@ import com.rabbitmq.client.Consumer;
 import com.rabbitmq.client.DefaultConsumer;
 import com.rabbitmq.client.Envelope;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Random;
 import java.util.Scanner;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Level;
@@ -24,29 +28,38 @@ import java.util.logging.Logger;
  */
 public class RabbitClient {
 
-    private Channel channel;
-    private ConnectionFactory factory;
-    private Connection connection;
+    private static Channel channel;
+    private final ConnectionFactory factory;
+    private final Connection connection;
     private final static String QUEUE_NAME = "hello";
-    private Consumer consumer;
+    private final static String BROADCAST_EX_NAME = "log";
+    private final Consumer consumer;
+    private final User user;
+    private static final List<String> defaultUsernames = new ArrayList<>(
+            Arrays.asList("Kucing", "Sapi", "Rusa", "Kambing", "Platipus", "Kucing", "Naga", "Panda")
+    );
 
     public RabbitClient() throws IOException, TimeoutException {
         factory = new ConnectionFactory();
         factory.setHost("localhost");
         connection = factory.newConnection();
         channel = connection.createChannel();
+        user = new User();
 
-        channel.queueDeclare(QUEUE_NAME, false, false, false, null);
+//        channel.queueDeclare(QUEUE_NAME, false, false, false, null);
+        channel.exchangeDeclare(BROADCAST_EX_NAME, "fanout");
+        String queueName = channel.queueDeclare().getQueue();
+        channel.queueBind(queueName, BROADCAST_EX_NAME, "");
+
         consumer = new DefaultConsumer(channel) {
             @Override
             public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body)
                     throws IOException {
                 String message = new String(body, "UTF-8");
-                System.out.println(" [x] Received '" + message + "'");
+                System.out.println(message);
             }
         };
-        channel.basicConsume(QUEUE_NAME, true, consumer);
-
+        channel.basicConsume(queueName, true, consumer);
     }
 
     public void Send() throws IOException, TimeoutException {
@@ -55,19 +68,32 @@ public class RabbitClient {
         System.out.println(" [x] Sent '" + message + "'");
     }
 
+    public void pushNotifications(String message) throws IOException {
+        String messageToSend = "Notifications : " + message;
+        channel.basicPublish(BROADCAST_EX_NAME, "", null, messageToSend.getBytes());
+    }
+
     public static void main(String[] argv) throws IOException, TimeoutException {
         RabbitClient rabbitClient = new RabbitClient();
         User u = new User();
         Scanner sc = new Scanner(System.in);
-        
+
         String command = sc.nextLine();
         while (!command.equals("/EXIT")) {
             if (command.length() >= 5 && command.substring(0, 5).equals("/NICK")) {
-                if (command.length() == 5) { //default username
+                String name = "";
+                if (command.length() <= 6) { //default username
                     //Implementation here
+                    int rndIdx = new Random().nextInt((defaultUsernames.size() - 0));
+                    name = defaultUsernames.get(rndIdx);
                 } else if (command.charAt(5) == ' ' && command.length() >= 7) {
-                    //Implementation here
+                    name = command.substring(6);
+                    name = name.trim(); //remove trailing whitespace
                 }
+                String message = name + " has joined";
+                u.setName(name);
+                rabbitClient.pushNotifications(message);
+
             } else if (command.length() >= 5 && command.substring(0, 5).equals("/JOIN") && !u.isEmpty()) {
                 if (command.length() == 5) { //default username
                     //Implementation here
@@ -81,9 +107,9 @@ public class RabbitClient {
                     //Implementation here
                 }
             } else if (command.length() >= 4 && command.charAt(0) == ('@') && !u.isEmpty()) {
-                    //Implementation here
+                //Implementation here
             } else if (!u.isEmpty()) {
-                    //Implementation here
+                //Implementation here
             }
 
             command = sc.nextLine();
