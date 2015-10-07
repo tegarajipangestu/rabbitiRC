@@ -36,6 +36,7 @@ public class User {
         this.name = "";
         this.myChannels = new ArrayList<String>();        
         messQueue = new ArrayList<String>();
+        this.myChannels.add("BROADCAST");
     }
 
     public String getName() {

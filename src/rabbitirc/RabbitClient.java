@@ -33,6 +33,7 @@ public class RabbitClient {
     private final static String NOTIFICATIONS_EX_NAME = "log";
     private final Consumer consumer;
     private static User user;
+    private String queueName;
     private static final List<String> defaultUsernames = new ArrayList<>(
             Arrays.asList("Kucing", "Sapi", "Rusa", "Kambing", "Platipus", "Kucing", "Naga", "Panda")
     );
@@ -45,9 +46,9 @@ public class RabbitClient {
         user = new User();
 
 //        channel.queueDeclare(QUEUE_NAME, false, false, false, null);
-        channel.exchangeDeclare(NOTIFICATIONS_EX_NAME, "fanout");
-        String queueName = channel.queueDeclare().getQueue();
-        channel.queueBind(queueName, NOTIFICATIONS_EX_NAME, "");
+        channel.exchangeDeclare(NOTIFICATIONS_EX_NAME, "direct");
+        queueName = channel.queueDeclare().getQueue();
+        channel.queueBind(queueName, NOTIFICATIONS_EX_NAME, "BROADCAST");
 
         consumer = new DefaultConsumer(channel) {
             @Override
@@ -63,18 +64,31 @@ public class RabbitClient {
 
     public void Send() throws IOException, TimeoutException {
         String message = "Hello World!";
-        channel.basicPublish("", QUEUE_NAME, null, message.getBytes());
+        channel.basicPublish(NOTIFICATIONS_EX_NAME, "BROADCAST", null, message.getBytes());
         System.out.println(" [x] Sent '" + message + "'");
     }
 
-    public void pushNotifications(String message, String header) throws IOException {
-        String messageToSend = header + " Notifications : " + message;
-        channel.basicPublish(NOTIFICATIONS_EX_NAME, "", null, messageToSend.getBytes());
+    public void pushNotifications(String _message, String header) throws IOException {
+        String message = header + " Notifications : " + _message;
+        channel.basicPublish(NOTIFICATIONS_EX_NAME, "BROADCAST", null, message.getBytes());
     }
 
     public void broadcastMessage(String _message) throws IOException {
-        String message = "[BROADCAST] "+_message;
-        channel.basicPublish(NOTIFICATIONS_EX_NAME, "", null, message.getBytes());
+        String message = "[BROADCAST] " + "(" + user.getName() + ")" + _message;
+        channel.basicPublish(NOTIFICATIONS_EX_NAME, "BROADCAST", null, message.getBytes());
+    }
+
+    public void sendMessage(String _message, String _channel) throws IOException {
+        String message = "[" + _channel + "] " + "(" + user.getName() + ") " + _message;
+        channel.basicPublish(NOTIFICATIONS_EX_NAME, _channel, null, message.getBytes());
+    }
+
+    public void addChannel(String _channel) throws IOException {
+        channel.queueBind(queueName, NOTIFICATIONS_EX_NAME, _channel);
+    }
+
+    public void removeChannel(String _channel) throws IOException {
+        channel.queueUnbind(queueName, NOTIFICATIONS_EX_NAME, _channel);
     }
 
     public void pushWarning(String message, String header) throws IOException {
@@ -109,20 +123,27 @@ public class RabbitClient {
                 } else {
                     channelName = command.substring(command.indexOf(" "));
                 }
+                rabbitClient.addChannel(channelName);
                 String message = user.getName() + " has joined channel " + channelName;
                 rabbitClient.pushNotifications(message, "[JOIN]");
 
             } else if (command.length() >= 6 && command.substring(0, 6).equals("/LEAVE")) {
                 if (command.charAt(6) == ' ' && command.length() >= 8) {
                     String channelName = command.substring(command.indexOf(" "));
+                    rabbitClient.removeChannel(channelName);
                     String message = user.getName() + " left channel " + channelName;
                     rabbitClient.pushNotifications(message, "[LEAVE]");
                 }
             } else if (command.length() >= 4 && command.charAt(0) == ('@')) {
-                //Implementation here
+                if (command.contains(" ")) {
+                    String channelname = command.substring(1, command.indexOf(' '));
+                    String message = command.substring(command.indexOf(' ') + 1, command.length());
+                    rabbitClient.sendMessage(message, channelname);
+                } else {
+                    System.out.println("You didn't type the message");
+                }
+
             } else {
-                //Implementation here
-                System.out.println("sini");
                 rabbitClient.broadcastMessage(command);
             }
 
